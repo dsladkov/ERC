@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {ShopToken} from "./ShopToken.sol";
+import "./Errors.sol";
 
     struct Item {
         uint256 price;
@@ -25,7 +26,8 @@ import {ShopToken} from "./ShopToken.sol";
 
     contract Shop {
 
-        mapping(bytes32 => Item) public items;
+        bytes32 uid;
+        mapping( bytes32  => Item item ) public items;
         bytes32[] public uniqueIds;
 
         mapping(address buyer => BoughtItem[]) public buyers;
@@ -36,7 +38,7 @@ import {ShopToken} from "./ShopToken.sol";
         address public owner;
 
         modifier onlyOwner() {
-            require(msg.sender == owner, "Not an owner");
+            require(msg.sender == owner, Errors.NotAnOwner(msg.sender));
             _;
         }
 
@@ -45,18 +47,21 @@ import {ShopToken} from "./ShopToken.sol";
             stk = ShopToken(_stk);
         }
 
-        function addItem(uint _price, uint _quantity, string calldata _name) external onlyOwner returns(bytes32 uid) {
+        function addItem(uint _price, uint _quantity, string calldata _name) external onlyOwner returns(bytes32) {
             uid = keccak256(abi.encode(_price, _name));
-            uniqueIds.push(uid);
             items[uid] = Item({price: _price, quantity: _quantity, name: _name, exists: true});
+            uniqueIds.push(uid);
+            return uid;
         }
 
         function buy(bytes32 _uid, uint _numOfItems, string calldata _address) external {
             Item storage itemToBuy = items[_uid];
             uint256 quantity = itemToBuy.quantity;
             bool exists = itemToBuy.exists;
-            require(exists && quantity >= _numOfItems);
+            require(exists, Errors.ItemIsOutOfStock());
+            require(quantity >= _numOfItems, Errors.InsufficientItemQuantity(quantity, _numOfItems));
 
+            //buyer should set allowance for totalPrice in stk token before buyng item< otherwise transferFrom shouldn't be possible
             uint256 totalPrice = _numOfItems * itemToBuy.price;
 
             stk.transferFrom(msg.sender, address(this), totalPrice);
@@ -76,7 +81,7 @@ import {ShopToken} from "./ShopToken.sol";
             uint counter;
 
             for(uint i = _count * _page - _count; i < _count * _page; ++i) {
-                if(i >= totalItems) break ;
+                if(i >= totalItems) break;
 
                 bytes32 currentUid = uniqueIds[i];
 

@@ -25,11 +25,11 @@ describe("TokenExchange", function() {
     const tokenInStock = 5n;
     const tokenWithDecimals = await withDecimals(stk, tokenInStock);
 
-    const transferTx = await stk.transfer(exch.target, tokenWithDecimals);
+    const transferTx = await stk.connect(owner).transfer(exch.target, tokenWithDecimals);
     await transferTx.wait();
 
-    expect(await  stk.balanceOf(exch.target)).eq(tokenWithDecimals);
-    await expect(transferTx).to.changeTokenBalances(stk, [owner,exch], [-tokenWithDecimals, tokenWithDecimals]);
+    expect(await stk.balanceOf(exch.target)).eq(tokenWithDecimals);
+    await expect(transferTx).to.changeTokenBalances(stk, [owner, exch], [-tokenWithDecimals, tokenWithDecimals]);
 
 
     const tokenToBuy = 1n;
@@ -44,8 +44,8 @@ describe("TokenExchange", function() {
 
     //console.log(buyTx);
 
-    await expect(buyTx).to.changeEtherBalances([buyer,exch], [-value, value]);
-    await expect(buyTx).to.changeTokenBalances(stk,[exch, buyer], [-value,value]);
+    await expect(buyTx).to.changeEtherBalances([buyer, exch], [-value, value]);
+    await expect(buyTx).to.changeTokenBalances(stk,[exch, buyer], [-value, value]);
 
   });
 
@@ -56,16 +56,21 @@ describe("TokenExchange", function() {
 
     const tokenWithDecimals = await withDecimals(stk, ownedTokens);
 
-    const transferTx = await stk.transfer(buyer.address,tokenWithDecimals);
+    const transferTx = await stk.connect(owner).transfer(buyer.address,tokenWithDecimals);
     await transferTx.wait();
+
+    await expect(transferTx).changeTokenBalances(stk, [owner, buyer], [-tokenWithDecimals, tokenWithDecimals]);
 
     console.log(`Buyer token balance: ${await stk.balanceOf(buyer.address)}`);
 
     const ethersTransfer = await ethers.parseEther(ownedTokens.toString());
 
+    //owner send some ETH to exchange platform for stk buyback from buyer
     const topUpTx = await exch.topUp({value: ethers.parseEther("5")});
-
     await topUpTx.wait();
+
+    //check that ETH balance of owner is decreased on ethers.parseEther("5") and exch is increased accordingly
+    await expect(topUpTx).changeEtherBalances([owner, exch], [-ethers.parseEther("5"), ethers.parseEther("5")])
 
     console.log(`Exchange balance ETH: ${await ethers.provider.getBalance(exch.target)}`);
 
@@ -76,8 +81,8 @@ describe("TokenExchange", function() {
     await approveTx.wait();
 
     const sellTx = await exch.connect(buyer).sell(value);
-
     await sellTx.wait();
+    
     await expect(sellTx).to.changeEtherBalances([exch, buyer], [-value, value]);
     await expect(sellTx).to.changeTokenBalances(stk, [exch, buyer], [value, -value]); 
   });

@@ -34,25 +34,25 @@ describe("Shop", function() {
 
     const uidItem = await shop.uniqueIds(0);
     const numOfItems = 2n;
-    const address = "TestAddress"
+    const deliveryAddress = "TestAddress"
     const totalPrice = priceItem * numOfItems;
 
     //do approve for shop address
     const txApproveForShop = await stk.connect(buyer).approve(shop.target, totalPrice);
     await txApproveForShop.wait();
 
-    const txBuyItem = await shop.connect(buyer).buy(uidItem, numOfItems, address);
+    const txBuyItem = await shop.connect(buyer).buy(uidItem, numOfItems, deliveryAddress);
     await txBuyItem.wait();
 
     await expect(txBuyItem).to.changeTokenBalances(stk, [shop.target, buyer.address], [totalPrice , -totalPrice]);
 
-    //check that buyer allowance for shop is not equal to 0 
+    //check that buyer allowance for shop is equal to 0 
     expect(await stk.allowance(buyer.address, shop.target)).to.be.eq(0);
 
     const boughtItem = await shop.buyers(buyer.address, 0);
     
     expect(boughtItem.uniqueId).eq(uidItem);
-    expect(boughtItem.deliveryAddress).eq(address);
+    expect(boughtItem.deliveryAddress).eq(deliveryAddress);
     expect(boughtItem.numOfPurchasedItems).eq(numOfItems);
 
 
